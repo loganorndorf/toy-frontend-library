@@ -100,6 +100,7 @@
 				{containerWidth}
 				{containerHeight}
 				title="Monthly Compensation & wRVU Performance"
+				subtitle="Side-by-side comparison of key performance metrics"
 				xAxisLabel="Month"
 				yAxisLabel="Compensation ($)"
 				y2AxisLabel="wRVU"
@@ -107,9 +108,10 @@
 				lineLabel="wRVU"
 				formatBarValue={formatCurrency}
 				formatLineValue={formatwRVU}
-				formatTooltip={formatTooltip}
 				onBarClick={handleBarClick}
 				onLineClick={handleLineClick}
+				colorScheme="gradient"
+				theme="light"
 			/>
 		</div>
 

@@ -17,10 +17,10 @@
     type,
     tickCount = 5,
     tickSize = 6,
-    tickPadding = 8,
+    tickPadding = 12,
     format,
     label,
-    labelOffset = 35,
+    labelOffset = 40,
     gridLines = false,
     position
   }: Props = $props();
@@ -136,17 +136,19 @@
       let dominantBaseline = 'central';
 
       if (type === 'x') {
-        x = x2 = scaledValue;
+        // Center ticks for band scales
+        const offset = currentScale.bandwidth ? currentScale.bandwidth() / 2 : 0;
+        x = x2 = scaledValue + offset;
         if (pos === 'bottom') {
           y = $height;
           y2 = $height + tickSize;
-          textX = scaledValue;
+          textX = scaledValue + offset;
           textY = $height + tickSize + tickPadding;
           dominantBaseline = 'hanging';
         } else {
           y = 0;
           y2 = -tickSize;
-          textX = scaledValue;
+          textX = scaledValue + offset;
           textY = -tickSize - tickPadding;
           dominantBaseline = 'baseline';
         }
@@ -208,6 +210,22 @@
 </script>
 
 <g class="axis axis-{type}" class:axis-with-grid={gridLines}>
+  <!-- Grid lines first so they're behind everything -->
+  {#if gridLines}
+    <g class="grid-lines">
+      {#each tickData() as tick, i}
+        <line
+          class="grid-line"
+          x1={tick.gridX1}
+          y1={tick.gridY1}
+          x2={tick.gridX2}
+          y2={tick.gridY2}
+          style:opacity={0.6 - (i * 0.05)}
+        />
+      {/each}
+    </g>
+  {/if}
+
   <!-- Axis line -->
   <line 
     class="axis-line"
@@ -217,43 +235,30 @@
     y2={axisLine().y2}
   />
 
-  <!-- Grid lines -->
-  {#if gridLines}
-    <g class="grid-lines">
-      {#each tickData() as tick}
-        <line
-          class="grid-line"
-          x1={tick.gridX1}
-          y1={tick.gridY1}
-          x2={tick.gridX2}
-          y2={tick.gridY2}
-        />
-      {/each}
-    </g>
-  {/if}
-
   <!-- Ticks and labels -->
   <g class="ticks">
-    {#each tickData() as tick}
-      <!-- Tick mark -->
-      <line
-        class="tick"
-        x1={tick.x}
-        y1={tick.y}
-        x2={tick.x2}
-        y2={tick.y2}
-      />
-      
-      <!-- Tick label -->
-      <text
-        class="tick-label"
-        x={tick.textX}
-        y={tick.textY}
-        text-anchor={tick.textAnchor}
-        dominant-baseline={tick.dominantBaseline}
-      >
-        {formatTick()(tick.value)}
-      </text>
+    {#each tickData() as tick, i}
+      <g class="tick-group" style:opacity={1 - (i * 0.02)}>
+        <!-- Tick mark -->
+        <line
+          class="tick"
+          x1={tick.x}
+          y1={tick.y}
+          x2={tick.x2}
+          y2={tick.y2}
+        />
+        
+        <!-- Tick label with background for better readability -->
+        <text
+          class="tick-label"
+          x={tick.textX}
+          y={tick.textY}
+          text-anchor={tick.textAnchor}
+          dominant-baseline={tick.dominantBaseline}
+        >
+          {formatTick()(tick.value)}
+        </text>
+      </g>
     {/each}
   </g>
 
@@ -273,60 +278,74 @@
 
 <style>
   .axis-line {
-    stroke: #d1d5db;
-    stroke-width: 1;
+    stroke: #e5e7eb;
+    stroke-width: 2;
     fill: none;
+    stroke-linecap: round;
   }
 
   .tick {
-    stroke: #d1d5db;
-    stroke-width: 1;
+    stroke: #e5e7eb;
+    stroke-width: 2;
+    stroke-linecap: round;
   }
 
   .tick-label {
-    fill: #4b5563;
+    fill: #6b7280;
     font-size: 12px;
+    font-weight: 500;
     font-family: system-ui, -apple-system, sans-serif;
+    letter-spacing: 0.01em;
   }
 
   .axis-label {
     fill: #374151;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     font-family: system-ui, -apple-system, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .grid-line {
-    stroke: #e5e7eb;
+    stroke: #f3f4f6;
     stroke-width: 1;
-    stroke-dasharray: 2,2;
-    opacity: 0.7;
+    stroke-dasharray: none;
+  }
+
+  /* Add subtle animations */
+  .tick-group {
+    transition: opacity 0.3s ease;
+  }
+
+  .axis:hover .tick-group {
+    opacity: 1 !important;
   }
 
   /* Dark mode */
   @media (prefers-color-scheme: dark) {
     .axis-line {
-      stroke: #4b5563;
+      stroke: #374151;
     }
 
     .tick {
-      stroke: #4b5563;
+      stroke: #374151;
     }
 
     .tick-label {
-      fill: #d1d5db;
+      fill: #9ca3af;
     }
 
     .axis-label {
-      fill: #e5e7eb;
+      fill: #d1d5db;
     }
 
     .grid-line {
-      stroke: #374151;
+      stroke: #1f2937;
     }
   }
 
-  /* Container query responsive adjustments */
+  /* Responsive adjustments */
   @container (max-width: 400px) {
     .tick-label {
       font-size: 10px;

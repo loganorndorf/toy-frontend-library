@@ -36,6 +36,16 @@ const meta = {
     containerHeight: {
       control: { type: 'number' },
       description: 'Height of the chart container'
+    },
+    colorScheme: {
+      control: { type: 'select' },
+      options: ['blue', 'purple', 'gradient', 'vibrant'],
+      description: 'Color scheme for the charts'
+    },
+    theme: {
+      control: { type: 'select' },
+      options: ['light', 'dark'],
+      description: 'Theme for the chart styling'
     }
   },
   args: {
@@ -44,7 +54,9 @@ const meta = {
     showTooltip: true,
     showLegend: true,
     containerWidth: undefined,
-    containerHeight: 400
+    containerHeight: 500,
+    colorScheme: 'gradient',
+    theme: 'light'
   }
 } satisfies Meta<ComboChartExample>;
 
@@ -57,7 +69,9 @@ export const Default: Story = {
     showGrid: true,
     showTooltip: true,
     showLegend: true,
-    containerHeight: 400
+    containerHeight: 500,
+    colorScheme: 'gradient',
+    theme: 'light'
   }
 };
 
@@ -107,6 +121,32 @@ export const Compact: Story = {
     showGrid: false,
     showTooltip: true,
     showLegend: false,
-    containerHeight: 250
+    containerHeight: 350,
+    colorScheme: 'blue',
+    theme: 'light'
+  }
+};
+
+export const DarkTheme: Story = {
+  args: {
+    animated: true,
+    showGrid: true,
+    showTooltip: true,
+    showLegend: true,
+    containerHeight: 500,
+    colorScheme: 'purple',
+    theme: 'dark'
+  }
+};
+
+export const VibrantColors: Story = {
+  args: {
+    animated: true,
+    showGrid: true,
+    showTooltip: true,
+    showLegend: true,
+    containerHeight: 500,
+    colorScheme: 'vibrant',
+    theme: 'light'
   }
 };

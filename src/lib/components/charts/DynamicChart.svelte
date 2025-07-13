@@ -145,17 +145,28 @@
   const chartData = $derived(() => {
     if (!data.length) return [];
 
-    return data.map(item => {
+    return data.map((item, index) => {
       const result: any = {
         label: item[config.dimensions.x] || 'Unknown',
         value: item[config.dimensions.y] || 0,
         metadata: item
       };
 
+      // For LineChart compatibility, add x and y properties
+      if (config.type === 'line') {
+        result.x = index; // Use index for x-axis positioning
+        result.y = item[config.dimensions.y] || 0;
+      }
+
       // Add additional dimensions for specific chart types
       if (config.type === 'combo' && config.dimensions.y2) {
         result.barValue = item[config.dimensions.y] || 0;
         result.lineValue = item[config.dimensions.y2] || 0;
+      }
+
+      if (config.type === 'scatter') {
+        result.x = item[config.dimensions.x] || 0;
+        result.y = item[config.dimensions.y] || 0;
       }
 
       if (config.dimensions.color) {
@@ -206,8 +217,10 @@
       formatValue={config.axes?.y?.format}
       formatTooltip={config.axes?.y?.format ? (d) => `${d.label}: ${config.axes.y.format(d.value)}` : undefined}
       onBarClick={handleDataPointClick}
-      {containerWidth}
-      {containerHeight}
+      containerWidth={containerWidth}
+      containerHeight={containerHeight}
+      colorScheme="gradient"
+      theme="light"
       {...responsiveConfig}
     />
   {:else if config.type === 'line'}
@@ -217,10 +230,11 @@
       xAxisLabel={config.axes?.x?.label}
       yAxisLabel={config.axes?.y?.label}
       formatValue={config.axes?.y?.format}
-      formatTooltip={config.axes?.y?.format ? (d) => `${d.label}: ${config.axes.y.format(d.value)}` : undefined}
       onPointClick={handleDataPointClick}
-      {containerWidth}
-      {containerHeight}
+      containerWidth={containerWidth}
+      containerHeight={containerHeight}
+      colorScheme="gradient"
+      theme="light"
       {...responsiveConfig}
     />
   {:else if config.type === 'scatter'}
@@ -247,8 +261,10 @@
       formatLineValue={config.axes?.y2?.format}
       onBarClick={handleDataPointClick}
       onLineClick={(d) => handleDataPointClick(d)}
-      {containerWidth}
-      {containerHeight}
+      containerWidth={containerWidth}
+      containerHeight={containerHeight}
+      colorScheme="gradient"
+      theme="light"
       {...responsiveConfig}
     />
   {:else}

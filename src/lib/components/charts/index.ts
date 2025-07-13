@@ -4,7 +4,7 @@ export { default as BarChart } from './BarChart.svelte';
 // Layer Cake chart components
 export { default as BarChartLayerCake } from './composed/BarChartLayerCake.svelte';
 export { default as SimpleBarChart } from './composed/SimpleBarChart.svelte';
-export { default as LineChart } from './composed/LineChart.svelte';
+export { default as LineChartLayerCake } from './composed/LineChart.svelte';
 export { default as ScatterPlot } from './composed/ScatterPlot.svelte';
 export { default as ComboChart } from './composed/ComboChart.svelte';
 

@@ -93,3 +93,27 @@ export const CompactView: Story = {
     containerHeight: 250
   }
 };
+
+export const BarChartLarge: Story = {
+  args: {
+    chartType: 'bar',
+    size: 'large',
+    containerHeight: 600
+  }
+};
+
+export const LineChartMedium: Story = {
+  args: {
+    chartType: 'line',
+    size: 'medium',
+    containerHeight: 450
+  }
+};
+
+export const ComboChartWide: Story = {
+  args: {
+    chartType: 'combo',
+    size: 'large',
+    containerHeight: 600
+  }
+};

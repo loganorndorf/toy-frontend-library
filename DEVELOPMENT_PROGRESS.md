@@ -428,3 +428,7 @@ npm run build                                      # Production build
 ```
 
 This architecture provides a clean separation between data visualization and layout concerns, making it easy to build flexible, responsive dashboards while keeping your charts pure and reusable.
+
+### Nice To Haves
+* a chart with adjustable time period slicing
+* a chart with 15 labels - if the labels are flat, we want to rotate them, or at least make sure they don't overlap

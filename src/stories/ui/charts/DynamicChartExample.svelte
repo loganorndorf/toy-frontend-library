@@ -71,14 +71,14 @@
 		bar: {
 			id: 'dynamic-bar',
 			type: 'bar',
-			title: 'Compensation by Specialty',
+			title: 'Compensation by Medical Specialty',
 			dataSource: { staticData: compensationData },
 			dimensions: { x: 'label', y: 'value' },
 			styling: { showGrid: true, showTooltip: true, animated: true },
 			axes: {
 				x: { label: 'Medical Specialties' },
 				y: { 
-					label: 'Compensation ($)',
+					label: 'Annual Compensation ($)',
 					format: (value) => new Intl.NumberFormat('en-US', {
 						style: 'currency',
 						currency: 'USD',
@@ -90,14 +90,14 @@
 		line: {
 			id: 'dynamic-line',
 			type: 'line',
-			title: 'Compensation Trends',
+			title: 'Quarterly Compensation Trends',
 			dataSource: { staticData: trendData },
 			dimensions: { x: 'label', y: 'value' },
 			styling: { showGrid: true, showTooltip: true, animated: true },
 			axes: {
-				x: { label: 'Quarter' },
+				x: { label: 'Time Period' },
 				y: { 
-					label: 'Compensation ($)',
+					label: 'Average Compensation ($)',
 					format: (value) => new Intl.NumberFormat('en-US', {
 						style: 'currency',
 						currency: 'USD',
@@ -128,7 +128,7 @@
 		combo: {
 			id: 'dynamic-combo',
 			type: 'combo',
-			title: 'Compensation & wRVU Trends',
+			title: 'Monthly Performance Dashboard',
 			dataSource: { staticData: comboData },
 			dimensions: { x: 'label', y: 'barValue', y2: 'lineValue' },
 			styling: { showGrid: true, showTooltip: true, animated: true, showLegend: true },
@@ -143,7 +143,7 @@
 					}).format(value)
 				},
 				y2: { 
-					label: 'wRVU',
+					label: 'wRVU Performance',
 					format: (value) => value.toLocaleString()
 				}
 			}

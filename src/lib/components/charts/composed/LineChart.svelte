@@ -1,411 +1,643 @@
 <script lang="ts">
-  import { scaleLinear, scaleTime } from 'd3-scale';
-  import { line } from 'd3-shape';
   import { LayerCake, Svg } from 'layercake';
+  import { scaleLinear, scaleTime } from 'd3-scale';
+  import { line, curveMonotoneX } from 'd3-shape';
   import ChartAxis from '../core/ChartAxis.svelte';
   import ChartTooltip from '../core/ChartTooltip.svelte';
-  import ChartLegend from '../core/ChartLegend.svelte';
+  import Line from '../layers/Line.svelte';
+  import type { HTMLAttributes } from 'svelte/elements';
 
   interface DataPoint {
-    x: any; // Date or number
+    x: number | Date;
     y: number;
-    series?: string;
-    [key: string]: any;
+    label?: string;
   }
 
-  interface LineSeriesConfig {
-    key: string;
-    label: string;
-    color: string;
-    strokeWidth?: number;
-    strokeDasharray?: string;
-    visible?: boolean;
-  }
-
-  interface Props {
+  interface Props extends HTMLAttributes<HTMLDivElement> {
     data: DataPoint[];
     title?: string;
-    width?: number;
-    height?: number;
-    series?: LineSeriesConfig[];
-    xKey?: string;
-    yKey?: string;
-    xLabel?: string;
-    yLabel?: string;
+    subtitle?: string;
+    xAxisLabel?: string;
+    yAxisLabel?: string;
+    animated?: boolean;
     showGrid?: boolean;
-    showLegend?: boolean;
     showTooltip?: boolean;
-    animate?: boolean;
-    padding?: { top: number; right: number; bottom: number; left: number };
+    showDots?: boolean;
+    formatValue?: (value: number) => string;
+    formatXValue?: (value: any) => string;
+    formatTooltip?: (dataPoint: DataPoint) => string;
+    onPointClick?: (dataPoint: DataPoint) => void;
+    padding?: { top?: number; right?: number; bottom?: number; left?: number };
+    containerWidth?: number;
+    containerHeight?: number;
+    colorScheme?: 'blue' | 'purple' | 'gradient' | 'vibrant';
+    theme?: 'light' | 'dark';
+    curveType?: 'linear' | 'monotone' | 'natural';
   }
 
   let {
-    data,
-    title,
-    width = 600,
-    height = 400,
-    series = [{ key: 'default', label: 'Value', color: '#3b82f6' }],
-    xKey = 'x',
-    yKey = 'y',
-    xLabel = '',
-    yLabel = '',
+    data = [],
+    title = '',
+    subtitle = '',
+    xAxisLabel = '',
+    yAxisLabel = '',
+    animated = true,
     showGrid = true,
-    showLegend = true,
     showTooltip = true,
-    animate = true,
-    padding = { top: 20, right: 20, bottom: 60, left: 80 }
+    showDots = true,
+    formatValue = (value: number) => {
+      if (value === undefined || value === null || isNaN(value)) {
+        return '0';
+      }
+      const numValue = Number(value);
+      if (numValue >= 1000000) {
+        return `${(numValue / 1000000).toFixed(1)}M`;
+      } else if (numValue >= 1000) {
+        return `${(numValue / 1000).toFixed(0)}K`;
+      }
+      return numValue.toLocaleString();
+    },
+    formatXValue = (value: any) => {
+      if (value === undefined || value === null) {
+        return '';
+      }
+      if (value instanceof Date) {
+        return value.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric' 
+        });
+      }
+      return String(value);
+    },
+    formatTooltip = (dataPoint: DataPoint) => {
+      if (!dataPoint) return '';
+      return `${formatXValue(dataPoint.x)}: ${formatValue(dataPoint.y)}`;
+    },
+    onPointClick = undefined,
+    padding = { top: 30, right: 50, bottom: 70, left: 90 },
+    containerWidth = 600,
+    containerHeight = 400,
+    colorScheme = 'gradient',
+    theme = 'light',
+    curveType = 'monotone',
+    ...restProps
   }: Props = $props();
-
-  // Tooltip state
-  let tooltipData = $state(null);
-  let tooltipVisible = $state(false);
-  let mousePosition = $state({ x: 0, y: 0 });
-
-  // Ensure data is always an array
-  const chartData = $derived(() => Array.isArray(data) ? data : []);
-
-  // Process data by series
-  const processedData = $derived(() => {
-    console.log('Processing data:', { 
-      chartData: chartData(), 
-      xKey, 
-      yKey, 
-      series 
-    });
+  
+  // Ensure data is always an array and sorted by x
+  const chartData = $derived(() => {
+    if (!data || !Array.isArray(data)) return [];
     
-    if (series.length === 1 && series[0].key === 'default') {
-      // Single series from data array
-      const processed = [{
-        key: 'default',
-        data: chartData().map(d => ({ x: d[xKey], y: d[yKey], original: d })),
-        config: series[0]
-      }];
-      console.log('Processed single series:', processed);
-      return processed;
-    } else {
-      // Multiple series - group by series key
-      return series.map(seriesConfig => {
-        const seriesData = chartData().filter(d => d.series === seriesConfig.key || !d.series)
-          .map(d => ({ x: d[xKey], y: d[yKey], original: d }));
-        return {
-          key: seriesConfig.key,
-          data: seriesData,
-          config: seriesConfig
-        };
-      });
-    }
-  });
-
-  // Create scales
-  const xScale = $derived(() => {
-    const allData = processedData().flatMap(s => s.data);
-    const xValues = allData.map(d => d.x);
-    
-    if (xValues[0] instanceof Date || typeof xValues[0] === 'string') {
-      return scaleTime()
-        .domain([new Date(Math.min(...xValues.map(v => new Date(v).getTime()))), 
-                 new Date(Math.max(...xValues.map(v => new Date(v).getTime())))])
-        .range([0, width - padding.left - padding.right]);
-    } else {
-      return scaleLinear()
-        .domain([Math.min(...xValues), Math.max(...xValues)])
-        .range([0, width - padding.left - padding.right]);
-    }
-  });
-
-  const yScale = $derived(() => {
-    const allData = processedData().flatMap(s => s.data);
-    const yValues = allData.map(d => d.y);
-    const yMin = Math.min(0, Math.min(...yValues));
-    const yMax = Math.max(...yValues);
-    const yPadding = (yMax - yMin) * 0.1;
-
-    return scaleLinear()
-      .domain([yMin - yPadding, yMax + yPadding])
-      .range([height - padding.top - padding.bottom, 0]);
-  });
-
-  // Create line generator
-  const lineGenerator = $derived(() => {
-    const currentXScale = xScale();
-    const currentYScale = yScale();
-    console.log('Creating line generator with scales:', { currentXScale, currentYScale });
-    
-    return line()
-      .x(d => currentXScale(d.x))
-      .y(d => currentYScale(d.y));
-  });
-
-  // Generate line paths
-  const linePaths = $derived(() => {
-    const result = processedData().map(series => {
-      const path = lineGenerator()(series.data);
-      console.log('Generated path for series:', { 
-        key: series.key, 
-        dataLength: series.data.length, 
-        path,
-        sampleData: series.data.slice(0, 2)
-      });
-      return {
-        ...series,
-        path
-      };
-    });
-    console.log('All line paths:', result);
-    return result;
-  });
-
-  // Legend items
-  const legendItems = $derived(() => {
-    return series.map(s => ({
-      label: s.label,
-      color: s.color,
-      visible: s.visible !== false
-    }));
-  });
-
-  // Handle legend toggle
-  function handleLegendToggle(index: number, visible: boolean) {
-    series[index].visible = visible;
-  }
-
-  // Handle mouse events for tooltip
-  function handleMouseMove(event: MouseEvent) {
-    if (!showTooltip) return;
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left - padding.left;
-    const y = event.clientY - rect.top - padding.top;
-
-    // Find closest data point
-    let closestPoint = null;
-    let closestDistance = Infinity;
-    let closestSeries = null;
-
-    processedData().forEach(series => {
-      if (series.config.visible === false) return;
-
-      series.data.forEach(point => {
-        const px = xScale()(point.x);
-        const py = yScale()(point.y);
-        const distance = Math.sqrt(Math.pow(x - px, 2) + Math.pow(y - py, 2));
-
-        if (distance < closestDistance && distance < 30) {
-          closestDistance = distance;
-          closestPoint = point;
-          closestSeries = series;
-        }
-      });
-    });
-
-    if (closestPoint && closestSeries) {
-      mousePosition = { x: event.clientX, y: event.clientY };
-      tooltipData = {
-        title: formatXValue(closestPoint.x),
-        items: [{
-          label: closestSeries.config.label,
-          value: closestPoint.y,
-          color: closestSeries.config.color
-        }]
-      };
-      tooltipVisible = true;
-    } else {
-      tooltipVisible = false;
-    }
-  }
-
-  function handleMouseLeave() {
-    tooltipVisible = false;
-  }
-
-  // Format functions
-  function formatXValue(value: any): string {
-    if (value instanceof Date) {
-      return value.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      });
-    }
-    return String(value);
-  }
-
-  // Data points for hover detection
-  const dataPoints = $derived(() => {
-    const currentXScale = xScale();
-    const currentYScale = yScale();
-    
-    const result = processedData().flatMap(series => 
-      series.data.map(point => ({
-        x: currentXScale(point.x),
-        y: currentYScale(point.y),
-        data: point,
-        series: series.config
-      }))
+    const validData = data.filter(d => 
+      d && 
+      d.x !== undefined && 
+      d.x !== null && 
+      d.y !== undefined && 
+      d.y !== null && 
+      !isNaN(d.y)
     );
     
-    console.log('Data points calculated:', { 
-      count: result.length, 
-      sample: result.slice(0, 2) 
+    const sortedData = [...validData];
+    return sortedData.sort((a, b) => {
+      const aVal = a.x instanceof Date ? a.x.getTime() : Number(a.x);
+      const bVal = b.x instanceof Date ? b.x.getTime() : Number(b.x);
+      return aVal - bVal;
     });
-    
-    return result;
   });
+
+  let hoveredPoint: DataPoint | null = $state(null);
+  let tooltipPosition = $state({ x: 0, y: 0 });
+  let chartContainer: HTMLDivElement;
+
+  // Calculate statistics
+  const stats = $derived(() => {
+    const currentData = chartData();
+    if (!currentData || currentData.length === 0) {
+      return { min: 0, max: 0, avg: 0, trend: 0 };
+    }
+    
+    const values = currentData.map(d => d.y).filter(v => v !== undefined && v !== null && !isNaN(v));
+    if (values.length === 0) return { min: 0, max: 0, avg: 0, trend: 0 };
+    
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    
+    // Calculate simple trend (positive/negative)
+    if (values.length < 2) return { min, max, avg, trend: 0 };
+    
+    const firstHalf = values.slice(0, Math.floor(values.length / 2));
+    const secondHalf = values.slice(Math.floor(values.length / 2));
+    
+    if (firstHalf.length === 0 || secondHalf.length === 0) {
+      return { min, max, avg, trend: 0 };
+    }
+    
+    const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+    const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+    const trend = firstAvg === 0 ? 0 : ((secondAvg - firstAvg) / firstAvg) * 100;
+    
+    return { min, max, avg, trend };
+  });
+
+  // Determine scale types and domains
+  const xDomain = $derived(() => {
+    const currentData = chartData();
+    if (!currentData || currentData.length === 0) return [0, 1];
+    
+    const xValues = currentData.map(d => d.x).filter(v => v !== undefined && v !== null);
+    if (xValues.length === 0) return [0, 1];
+    
+    if (xValues[0] instanceof Date) {
+      return [xValues[0], xValues[xValues.length - 1]];
+    }
+    
+    const numericValues = xValues.map(v => Number(v)).filter(v => !isNaN(v));
+    if (numericValues.length === 0) return [0, 1];
+    
+    return [Math.min(...numericValues), Math.max(...numericValues)];
+  });
+
+  const yDomain = $derived(() => {
+    const currentData = chartData();
+    if (!currentData || currentData.length === 0) return [0, 1];
+    
+    const yValues = currentData.map(d => d.y).filter(v => v !== undefined && v !== null && !isNaN(v));
+    if (yValues.length === 0) return [0, 1];
+    
+    const min = Math.min(0, Math.min(...yValues));
+    const max = Math.max(...yValues);
+    const padding = (max - min) * 0.1;
+    return [min - padding, max + padding];
+  });
+
+  const xScale = $derived(() => {
+    const currentData = chartData();
+    if (!currentData || currentData.length === 0) return scaleLinear();
+    
+    const firstX = currentData[0]?.x;
+    if (firstX instanceof Date) {
+      return scaleTime();
+    }
+    return scaleLinear();
+  });
+
+  // Color schemes
+  const colorSchemes = {
+    blue: '#3b82f6',
+    purple: '#8b5cf6',
+    gradient: 'url(#lineGradient)',
+    vibrant: '#ef4444'
+  };
+  
+  const gradientMap = {
+    gradient: 'url(#lineGradient)',
+    purple: 'url(#lineGradientPurple)',
+    vibrant: 'url(#lineGradientVibrant)',
+    blue: '#3b82f6'
+  };
+  
+  // Get the color for the current scheme
+  const getColor = (scheme: string) => {
+    return gradientMap[scheme as keyof typeof gradientMap] || gradientMap.gradient;
+  };
+  
+  // Get solid color for dots and tooltips
+  const dotColor = () => {
+    const solidColors = {
+      blue: '#3b82f6',
+      purple: '#8b5cf6',
+      gradient: '#3b82f6',
+      vibrant: '#ef4444'
+    };
+    return solidColors[colorScheme as keyof typeof solidColors] || '#3b82f6';
+  };
+
+  function handlePointHover(dataPoint: DataPoint, event?: MouseEvent) {
+    if (showTooltip && event && chartContainer) {
+      hoveredPoint = dataPoint;
+      const rect = chartContainer.getBoundingClientRect();
+      tooltipPosition = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    }
+  }
+
+  function handlePointLeave() {
+    hoveredPoint = null;
+  }
+
+  function handlePointClick(dataPoint: DataPoint) {
+    onPointClick?.(dataPoint);
+  }
 </script>
 
-<div class="line-chart-wrapper" style:width="{width}px" style:height="{height}px">
-  {#if title}
-    <h3 class="chart-title">{title}</h3>
-  {/if}
-  
-  <LayerCake
-    data={processedData().flatMap(s => s.data)}
-    {padding}
-    x="x"
-    y="y"
-    xScale={xScale()}
-    yScale={yScale()}
-    width={width - 32}
-    height={height - 32 - (title ? 40 : 0)}
-  >
-    <Svg>
-      <!-- Grid lines -->
-      {#if showGrid}
-        <ChartAxis type="x" gridLines={true} />
-        <ChartAxis type="y" gridLines={true} />
-      {/if}
+<div 
+  bind:this={chartContainer}
+  class="chart-container {theme}" 
+  style:width="{containerWidth}px" 
+  style:height="{containerHeight}px" 
+  {...restProps}
+>
+  {#if !chartData() || chartData().length === 0}
+    <div class="empty-state">
+      <p>No data available</p>
+    </div>
+  {:else}
+    <div class="chart-content" data-color-scheme={colorScheme}>
+      <!-- Header section -->
+      <div class="chart-header">
+        <div class="header-content">
+          {#if title}
+            <h3 class="chart-title">{title}</h3>
+          {/if}
+          {#if subtitle}
+            <p class="chart-subtitle">{subtitle}</p>
+          {/if}
+        </div>
+        
+        <!-- Stats badges -->
+        <div class="chart-stats">
+          <div class="stat-badge">
+            <span class="stat-label">Min</span>
+            <span class="stat-value">{formatValue(stats.min)}</span>
+          </div>
+          <div class="stat-badge">
+            <span class="stat-label">Max</span>
+            <span class="stat-value">{formatValue(stats.max)}</span>
+          </div>
+          <div class="stat-badge trend" class:positive={stats.trend > 0} class:negative={stats.trend < 0}>
+            <span class="stat-label">Trend</span>
+            <span class="stat-value">
+              {stats.trend > 0 ? '+' : ''}{isNaN(stats.trend) ? '0' : stats.trend.toFixed(1)}%
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Chart area -->
+      <div class="chart-wrapper">
+      <LayerCake
+        {padding}
+        x="x"
+        y="y"
+        xScale={xScale()}
+        yScale={scaleLinear()}
+        xDomain={xDomain()}
+        yDomain={yDomain()}
+        data={chartData()}
+      >
+        <Svg>
+          <!-- Gradient definitions -->
+          <defs>
+            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+            </linearGradient>
+            
+            <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:0.3" />
+              <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0.05" />
+            </linearGradient>
 
-      <!-- Axes -->
-      <ChartAxis type="x" label={xLabel} />
-      <ChartAxis type="y" label={yLabel} />
+            <!-- Glow filter -->
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
 
-      <!-- Line paths -->
-      {#each linePaths() as series}
-        {#if series.config.visible !== false}
-          <path
-            class="line-path"
-            class:animate-line={animate}
-            d={series.path}
-            stroke={series.config.color}
-            stroke-width={series.config.strokeWidth || 2}
-            stroke-dasharray={series.config.strokeDasharray || 'none'}
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
+            <!-- Background pattern -->
+            <pattern id="grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(226, 232, 240, 0.3)" stroke-width="1"/>
+            </pattern>
+          </defs>
+          
+          <!-- Optional background -->
+          <rect width="100%" height="100%" fill="url(#grid-pattern)" opacity="0.5" />
+          
+          <ChartAxis type="x" position="bottom" label={xAxisLabel} format={(v) => v != null ? formatXValue(v) : ''} />
+          <ChartAxis type="y" position="left" label={yAxisLabel} gridLines={showGrid} format={(v) => v != null ? formatValue(v) : '0'} />
+          
+          <Line 
+            {animated}
+            {colorScheme}
+            {curveType}
+            {showDots}
+            onPointHover={handlePointHover}
+            onPointLeave={handlePointLeave}
+            onPointClick={handlePointClick}
           />
-        {/if}
-      {/each}
+        </Svg>
+      </LayerCake>
+    </div>
+  </div>
 
-      <!-- Data points for hover -->
-      {#each dataPoints() as point}
-        {#if point.series.visible !== false}
-          <circle
-            class="data-point"
-            cx={point.x}
-            cy={point.y}
-            r="4"
-            fill={point.series.color}
-            stroke="white"
-            stroke-width="2"
-            opacity="0"
-          />
-        {/if}
-      {/each}
-
-      <!-- Interactive overlay -->
-      <rect
-        class="interaction-overlay"
-        width={width - padding.left - padding.right}
-        height={height - padding.top - padding.bottom}
-        fill="transparent"
-        onmousemove={handleMouseMove}
-        onmouseleave={handleMouseLeave}
+  {#if hoveredPoint && showTooltip}
+    <ChartTooltip 
+        data={{
+          title: formatXValue(hoveredPoint.x),
+          items: [
+            {
+              label: hoveredPoint.label || 'Value',
+              value: formatValue(hoveredPoint.y),
+              color: dotColor()
+            }
+          ]
+        }}
+        x={tooltipPosition.x}
+        y={tooltipPosition.y}
+        visible={true}
+        {theme}
       />
-    </Svg>
-  </LayerCake>
-
-  <!-- Tooltip -->
-  {#if showTooltip}
-    <ChartTooltip
-      {tooltipData}
-      x={mousePosition.x}
-      y={mousePosition.y}
-      visible={tooltipVisible}
-    />
-  {/if}
-
-  <!-- Legend -->
-  {#if showLegend && series.length > 1}
-    <ChartLegend
-      items={legendItems()}
-      onToggle={handleLegendToggle}
-      position="bottom"
-    />
+    {/if}
   {/if}
 </div>
 
+
+
 <style>
-  .line-chart-wrapper {
+  .chart-container {
+    background: linear-gradient(to bottom, #ffffff, #fafbfc);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    box-shadow: 
+      0 1px 3px rgba(0, 0, 0, 0.05),
+      0 10px 40px -10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+  }
+
+  .chart-container:hover {
+    box-shadow: 
+      0 1px 3px rgba(0, 0, 0, 0.05),
+      0 20px 60px -15px rgba(0, 0, 0, 0.15);
+  }
+
+  .chart-container.dark {
+    background: linear-gradient(to bottom, #1f2937, #111827);
+    border-color: rgba(55, 65, 81, 0.5);
+  }
+  
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+  }
+
+  .header-content {
+    flex: 1;
+  }
+  
+  .chart-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: #1f2937;
+    letter-spacing: -0.025em;
+  }
+  
+  [data-color-scheme="blue"] .chart-title {
+    color: #1e3a8a;
+  }
+  
+  [data-color-scheme="purple"] .chart-title {
+    color: #581c87;
+  }
+  
+  [data-color-scheme="vibrant"] .chart-title {
+    color: #991b1b;
+  }
+
+  .chart-subtitle {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 4px 0 0 0;
+  }
+
+  .dark .chart-title {
+    color: #f9fafb;
+  }
+
+  .dark .chart-subtitle {
+    color: #9ca3af;
+  }
+  
+  .chart-stats {
+    display: flex;
+    gap: 12px;
+  }
+
+  .stat-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    border-radius: 12px;
+    border: 1px solid rgba(229, 231, 235, 0.5);
+    min-width: 70px;
+    transition: all 0.3s ease;
+  }
+  
+  /* Color scheme specific badges */
+  [data-color-scheme="blue"] .stat-badge {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    border-color: rgba(59, 130, 246, 0.2);
+  }
+  
+  [data-color-scheme="purple"] .stat-badge {
+    background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+    border-color: rgba(139, 92, 246, 0.2);
+  }
+  
+  [data-color-scheme="vibrant"] .stat-badge {
+    background: linear-gradient(135deg, #fef3c7, #fed7aa);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .stat-badge.trend.positive {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    border-color: rgba(16, 185, 129, 0.2);
+  }
+
+  .stat-badge.trend.negative {
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .dark .stat-badge {
+    background: linear-gradient(135deg, #374151, #1f2937);
+    border-color: rgba(75, 85, 99, 0.5);
+  }
+
+  .dark .stat-badge.trend.positive {
+    background: linear-gradient(135deg, #064e3b, #065f46);
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+
+  .dark .stat-badge.trend.negative {
+    background: linear-gradient(135deg, #7f1d1d, #991b1b);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .stat-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  
+  [data-color-scheme="blue"] .stat-value {
+    color: #1e40af;
+  }
+  
+  [data-color-scheme="purple"] .stat-value {
+    color: #6b21a8;
+  }
+  
+  [data-color-scheme="vibrant"] .stat-value {
+    color: #dc2626;
+  }
+
+  .trend.positive .stat-value {
+    color: #059669;
+  }
+
+  .trend.negative .stat-value {
+    color: #dc2626;
+  }
+
+  .dark .stat-label {
+    color: #9ca3af;
+  }
+
+  .dark .stat-value {
+    color: #f9fafb;
+  }
+
+  .dark .trend.positive .stat-value {
+    color: #10b981;
+  }
+
+  .dark .trend.negative .stat-value {
+    color: #ef4444;
+  }
+
+  .chart-wrapper {
+    width: 100%;
+    height: calc(100% - 100px); /* Increased from 80px to account for header */
+    position: relative;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    padding: 4px;
+    overflow: hidden; /* Prevent overflow */
+  }
+  
+  [data-color-scheme="blue"] .chart-wrapper {
+    background: rgba(219, 234, 254, 0.2);
+  }
+  
+  [data-color-scheme="purple"] .chart-wrapper {
+    background: rgba(237, 233, 254, 0.2);
+  }
+  
+  [data-color-scheme="vibrant"] .chart-wrapper {
+    background: rgba(254, 243, 199, 0.2);
+  }
+
+  .dark .chart-wrapper {
+    background: rgba(17, 24, 39, 0.5);
+  }
+  
+  /* Enhanced axis styles */
+  :global(.chart-container .axis-line) {
+    stroke: #e5e7eb;
+    stroke-width: 2;
+  }
+
+  :global(.dark .axis-line) {
+    stroke: #374151;
+  }
+
+  :global(.chart-container .tick-label) {
+    font-size: 12px;
+    font-weight: 500;
+    fill: #6b7280;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  :global(.dark .tick-label) {
+    fill: #9ca3af;
+  }
+
+  :global(.chart-container .axis-label) {
+    font-size: 13px;
+    font-weight: 600;
+    fill: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  :global(.dark .axis-label) {
+    fill: #d1d5db;
+  }
+
+  :global(.chart-container .grid-line) {
+    stroke: #f3f4f6;
+    stroke-width: 1;
+    stroke-dasharray: none;
+  }
+
+  :global(.dark .grid-line) {
+    stroke: #1f2937;
+  }
+
+  .chart-content {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 16px;
-    position: relative;
   }
   
-  .chart-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    color: #374151;
+  .empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #6b7280;
+    font-size: 1rem;
   }
 
-  .line-path {
-    transition: all 0.3s ease-in-out;
-  }
-
-  .line-path:hover {
-    stroke-width: 3;
-  }
-
-  .animate-line {
-    stroke-dasharray: 1000;
-    stroke-dashoffset: 1000;
-    animation: draw-line 1s ease-out forwards;
-  }
-
-  @keyframes draw-line {
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-
-  .data-point {
-    transition: all 0.2s ease-in-out;
-    cursor: pointer;
-  }
-
-  .data-point:hover {
-    opacity: 1 !important;
-    r: 6;
-  }
-
-  .interaction-overlay {
-    @apply cursor-crosshair;
-  }
-
-  /* Container query responsive adjustments */
-  @container (max-width: 400px) {
-    .line-path {
-      stroke-width: 1.5;
+  /* Responsive design */
+  @media (max-width: 640px) {
+    .chart-header {
+      flex-direction: column;
+      gap: 16px;
     }
 
-    .data-point {
-      r: 3;
+    .chart-stats {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .stat-badge {
+      flex: 1;
+      min-width: 60px;
     }
   }
 </style>

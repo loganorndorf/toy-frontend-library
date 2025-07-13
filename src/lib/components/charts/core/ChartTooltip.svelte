@@ -17,6 +17,7 @@
     y?: number;
     visible?: boolean;
     followCursor?: boolean;
+    theme?: 'dark' | 'light';
   }
 
   let {
@@ -25,7 +26,8 @@
     x = 0,
     y = 0,
     visible = false,
-    followCursor = true
+    followCursor = true,
+    theme = 'dark'
   }: Props = $props();
 
   // Get Layer Cake context for positioning
@@ -94,11 +96,14 @@
 {#if visible && (data || content)}
   <div 
     bind:this={tooltipElement}
-    class="chart-tooltip"
+    class="chart-tooltip {theme}"
     style:left="{tooltipPosition.x}px"
     style:top="{tooltipPosition.y}px"
     style:opacity={tooltipPosition.opacity}
   >
+    <!-- Tooltip arrow -->
+    <div class="tooltip-arrow"></div>
+    
     {#if content}
       <div class="tooltip-content">
         {@html content}
@@ -116,10 +121,10 @@
             {#if item.color}
               <div 
                 class="tooltip-color-indicator"
-                style:background-color={item.color}
+                style:background={`linear-gradient(135deg, ${item.color}, ${item.color}dd)`}
               ></div>
             {/if}
-            <span class="tooltip-label">{item.label}:</span>
+            <span class="tooltip-label">{item.label}</span>
             <span class="tooltip-value">{formatValue(item.value)}</span>
           </div>
         {/each}
@@ -133,81 +138,134 @@
     position: absolute;
     pointer-events: none;
     z-index: 50;
-    background-color: #111827;
+    background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
     color: white;
-    border-radius: 0.5rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    padding: 0.75rem;
+    border-radius: 12px;
+    box-shadow: 
+      0 20px 25px -5px rgba(0, 0, 0, 0.2),
+      0 10px 10px -5px rgba(0, 0, 0, 0.1),
+      0 0 0 1px rgba(255, 255, 255, 0.05);
+    padding: 12px 16px;
     font-size: 0.875rem;
-    border: 1px solid #374151;
-    transition: opacity 0.2s ease-in-out;
-    max-width: 250px;
-    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 280px;
+    backdrop-filter: blur(12px);
+    transform: translateY(0);
+  }
+
+  .chart-tooltip.light {
+    background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+    color: #111827;
+    border-color: rgba(229, 231, 235, 0.8);
+    box-shadow: 
+      0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04),
+      0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+
+  .tooltip-arrow {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: inherit;
+    transform: rotate(45deg);
+    left: -4px;
+    top: 50%;
+    margin-top: -4px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .light .tooltip-arrow {
+    border-color: rgba(229, 231, 235, 0.8);
   }
 
   .tooltip-title {
-    font-weight: 500;
+    font-weight: 600;
     color: #f3f4f6;
-    margin-bottom: 0.25rem;
-    border-bottom: 1px solid #374151;
-    padding-bottom: 0.25rem;
+    margin-bottom: 8px;
+    font-size: 0.9375rem;
+    letter-spacing: -0.01em;
+  }
+
+  .light .tooltip-title {
+    color: #111827;
   }
 
   .tooltip-content {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 6px;
   }
 
   .tooltip-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    min-height: 20px;
+    gap: 8px;
+    min-height: 24px;
   }
 
   .tooltip-color-indicator {
-    width: 0.75rem;
-    height: 0.75rem;
-    border-radius: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
     flex-shrink: 0;
-    border: 1px solid #4b5563;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .tooltip-label {
-    color: #d1d5db;
+    color: #9ca3af;
     flex-shrink: 0;
-  }
-
-  .tooltip-value {
-    font-weight: 500;
-    color: white;
-    margin-left: auto;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Light theme variant */
-  .chart-tooltip.light {
-    background-color: white;
-    color: #111827;
-    border-color: #e5e7eb;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  }
-
-  .light .tooltip-title {
-    color: #111827;
-    border-color: #e5e7eb;
+    font-size: 0.8125rem;
+    letter-spacing: 0.01em;
   }
 
   .light .tooltip-label {
-    color: #4b5563;
+    color: #6b7280;
+  }
+
+  .tooltip-value {
+    font-weight: 600;
+    color: white;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9375rem;
   }
 
   .light .tooltip-value {
     color: #111827;
   }
 
-  .light .tooltip-color-indicator {
-    border-color: #d1d5db;
+  /* Hover effect for better interactivity feel */
+  .chart-tooltip:hover {
+    transform: translateY(-1px);
+    box-shadow: 
+      0 25px 30px -5px rgba(0, 0, 0, 0.25),
+      0 15px 15px -5px rgba(0, 0, 0, 0.15),
+      0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  .chart-tooltip.light:hover {
+    box-shadow: 
+      0 25px 30px -5px rgba(0, 0, 0, 0.15),
+      0 15px 15px -5px rgba(0, 0, 0, 0.08),
+      0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Animation for appearance */
+  @keyframes tooltipFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .chart-tooltip {
+    animation: tooltipFadeIn 0.2s ease-out;
   }
 </style>

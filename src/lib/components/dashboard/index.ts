@@ -1,5 +1,6 @@
-// Dashboard layout components will be exported here
-// export { default as DashboardGrid } from './DashboardGrid.svelte';
-// export { default as FilterPanel } from './FilterPanel.svelte';
-// export { default as TabbedDashboard } from './TabbedDashboard.svelte';
-// More dashboard exports to come...
+// Dashboard layout components
+export { default as DashboardGrid } from './DashboardGrid.svelte';
+export { default as WidgetContainer } from './WidgetContainer.svelte';
+export { default as WidgetHeader } from './WidgetHeader.svelte';
+export { default as ResizeHandle } from './ResizeHandle.svelte';
+export { default as GridOverlay } from './GridOverlay.svelte';

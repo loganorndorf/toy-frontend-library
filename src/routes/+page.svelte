@@ -79,7 +79,13 @@
 </script>
 
 <main class="container mx-auto p-8">
-	<h1 class="text-4xl font-bold mb-8">Component Library Demo</h1>
+	<div class="mb-8">
+		<h1 class="text-4xl font-bold mb-4">Component Library Demo</h1>
+		<div class="flex gap-4 text-sm">
+			<a href="/charts" class="text-blue-600 hover:text-blue-800 underline">View Charts →</a>
+			<a href="/dashboard" class="text-blue-600 hover:text-blue-800 underline">View Dashboard →</a>
+		</div>
+	</div>
 	
 	<section class="mb-12">
 		<h2 class="text-2xl font-semibold mb-4">Buttons</h2>

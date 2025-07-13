@@ -1,14 +1,12 @@
 <script lang="ts">
-	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import { BarChartLayerCake } from '$lib/components/charts';
 
 	let {
-		variant = 'default',
-		size = 'lg',
-		orientation = 'vertical',
+		animated = true,
 		showGrid = true,
 		showTooltip = true,
-		showValues = false,
-		animated = true
+		containerWidth = undefined,
+		containerHeight = 400
 	} = $props();
 
 	// Sample clinician compensation data
@@ -37,11 +35,6 @@
 			label: 'Radiology', 
 			value: 445000,
 			metadata: { department: 'Rad', providers: 10, wRVU: 8800 }
-		},
-		{ 
-			label: 'Anesthesiology', 
-			value: 415000,
-			metadata: { department: 'Anes', providers: 9, wRVU: 8200 }
 		}
 	];
 
@@ -69,21 +62,19 @@
 
 <div class="p-4 bg-gray-50 min-h-screen">
 	<div class="max-w-6xl mx-auto">
-		<h3 class="text-2xl font-semibold mb-8 text-center">BarChart - Clinician Compensation by Specialty</h3>
+		<h3 class="text-2xl font-semibold mb-8 text-center">Layer Cake BarChart - Clinician Compensation</h3>
 
-		<div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6 mb-8">
-			<BarChart
+		<div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-8">
+			<BarChartLayerCake
 				data={compensationData}
-				{variant}
-				{size}
-				{orientation}
+				{animated}
 				{showGrid}
 				{showTooltip}
-				{showValues}
-				{animated}
+				{containerWidth}
+				{containerHeight}
 				title="Average Annual Compensation by Medical Specialty"
-				xAxisLabel={orientation === 'vertical' ? 'Medical Specialties' : 'Compensation ($)'}
-				yAxisLabel={orientation === 'vertical' ? 'Compensation ($)' : 'Medical Specialties'}
+				xAxisLabel="Medical Specialties"
+				yAxisLabel="Compensation ($)"
 				formatValue={formatCurrency}
 				formatTooltip={formatTooltip}
 				onBarClick={handleBarClick}
@@ -92,33 +83,33 @@
 
 		<!-- Data Summary -->
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-			<div class="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-				<h4 class="font-medium text-slate-900 mb-2">Highest Paid</h4>
+			<div class="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+				<h4 class="font-medium text-gray-900 mb-2">Highest Paid</h4>
 				<div class="text-2xl font-bold text-green-600">
 					{formatCurrency(Math.max(...compensationData.map(d => d.value)))}
 				</div>
-				<div class="text-sm text-slate-500">Orthopedics</div>
+				<div class="text-sm text-gray-500">Orthopedics</div>
 			</div>
 
-			<div class="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-				<h4 class="font-medium text-slate-900 mb-2">Average</h4>
+			<div class="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+				<h4 class="font-medium text-gray-900 mb-2">Average</h4>
 				<div class="text-2xl font-bold text-blue-600">
 					{formatCurrency(compensationData.reduce((sum, d) => sum + d.value, 0) / compensationData.length)}
 				</div>
-				<div class="text-sm text-slate-500">Across all specialties</div>
+				<div class="text-sm text-gray-500">Across all specialties</div>
 			</div>
 
-			<div class="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-				<h4 class="font-medium text-slate-900 mb-2">Total Providers</h4>
+			<div class="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+				<h4 class="font-medium text-gray-900 mb-2">Total Providers</h4>
 				<div class="text-2xl font-bold text-purple-600">
 					{compensationData.reduce((sum, d) => sum + d.metadata.providers, 0)}
 				</div>
-				<div class="text-sm text-slate-500">Across all departments</div>
+				<div class="text-sm text-gray-500">Across all departments</div>
 			</div>
 		</div>
 
-		<div class="mt-8 text-center text-sm text-slate-500">
-			Click on any bar to see detailed information. Hover for interactive tooltips.
+		<div class="mt-8 text-center text-sm text-gray-500">
+			Layer Cake powered chart with D3 scaling. Click bars for details, hover for tooltips.
 		</div>
 	</div>
 </div>

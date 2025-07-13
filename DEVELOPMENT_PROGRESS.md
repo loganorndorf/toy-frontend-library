@@ -3,6 +3,25 @@
 ## 📋 **Project Overview**
 We're building a comprehensive Svelte component library using SvelteKit + Melt UI + Bits UI + Storybook, with a focus on clinician compensation data visualization. The library follows Svelte 5 runes syntax and uses TypeScript with tailwind-variants for systematic styling.
 
+## 🏗️ **Architecture Overview**
+
+### Three-Layer Architecture
+```
+┌─────────────────────────────────────┐
+│         Layout Layer                │  ← Grid, positioning, drag/drop
+├─────────────────────────────────────┤
+│        Container Layer              │  ← Resize, actions, chrome
+├─────────────────────────────────────┤
+│     Content Layer (Charts, etc)     │  ← Pure data visualization
+└─────────────────────────────────────┘
+```
+
+This separation ensures:
+- Charts remain pure data visualization components
+- Layout logic is centralized and reusable
+- Easy to add new widget types
+- Responsive design with container queries
+
 ## ✅ **Completed Work**
 
 ### **Phase 1: Core UI Library (20 Components) - COMPLETED**
@@ -33,166 +52,379 @@ Reorganized folder structure from flat to organized hierarchy:
 - ✅ Built comprehensive BarChart component with clinician compensation focus
 - ✅ Implemented Svelte 5 runes ($state, $derived, $bindable, $effect)
 - ✅ Created Storybook stories and interactive examples
-- ✅ Fixed major rendering issues:
-  - X-axis label overlapping (added rotation, better spacing)
-  - Tooltip HTML rendering (added {@html} directive)
-  - Bar colors (fixed styling property access)
-  - Container sizing and overflow handling
+- ✅ Fixed major rendering issues
 
 **Key Technical Patterns Established:**
 - Svelte 5 runes syntax for reactive state management
 - TypeScript interfaces for component props
 - tailwind-variants for systematic component styling
-- Storybook wrapper components for complex demos
-- Centralized variants.ts for all component styling
 - Clinician compensation data structures (wRVU, compensation, providers)
 
-## 📁 **Key Files & Code Structure**
+## 🎯 **Chart Library Decision: Layer Cake + D3.js**
 
-### **Component Files:**
-- `/src/lib/components/charts/BarChart.svelte` - Main chart component
-- `/src/lib/components/charts/index.ts` - Chart exports
-- `/src/lib/components/index.ts` - Main component exports
+### **Selected Approach: Layer Cake with D3.js utilities**
+**Why Layer Cake:**
+- **Svelte-native**: Built specifically for Svelte, leverages reactivity system naturally
+- **Component-based**: Aligns perfectly with our component architecture
+- **Flexible**: Full control over rendering and styling with Tailwind
+- **Lightweight**: No heavy dependencies, just what we need
+- **Composable**: Build reusable chart components (tooltips, axes, legends)
 
-### **Styling System:**
-- `/src/lib/utils/variants.ts` - Contains `barChartVariants` and `chartContainerVariants`
+**D3.js for:**
+- Scale calculations (scaleLinear, scaleTime, etc.)
+- Data transformations
+- Path generation for complex shapes
+- Advanced interactions (brush, zoom)
 
-### **Storybook Integration:**
-- `/src/stories/charts/BarChart.stories.ts` - Chart story configurations
-- `/src/stories/ui/charts/BarChartExample.svelte` - Interactive demo wrapper
+## 📁 **Updated File Structure**
 
-### **Sample Data Structure:**
-```typescript
-const compensationData = [
-  { 
-    label: 'Emergency Medicine', 
-    value: 395000,
-    metadata: { department: 'EM', providers: 12, wRVU: 8500 }
-  },
-  // ... more specialties
-];
+### **Complete Component Organization:**
+```
+/src/lib/components/
+├── charts/                      # Data visualization layer
+│   ├── core/                    # Layer Cake base components
+│   │   ├── ChartContainer.svelte
+│   │   ├── ChartTooltip.svelte
+│   │   ├── ChartLegend.svelte
+│   │   └── ChartAxis.svelte
+│   ├── layers/                  # Reusable chart layers
+│   │   ├── Line.svelte
+│   │   ├── Bars.svelte
+│   │   ├── Scatter.svelte
+│   │   └── Area.svelte
+│   ├── composed/                # Complete chart components
+│   │   ├── BarChart.svelte
+│   │   ├── LineChart.svelte
+│   │   ├── ScatterPlot.svelte
+│   │   └── ComboChart.svelte
+│   └── DynamicChart.svelte     # Config-driven chart renderer
+├── dashboard/                   # Dashboard layout layer
+│   ├── WidgetContainer.svelte   # Widget wrapper with resize/drag
+│   ├── DashboardGrid.svelte     # Grid layout system
+│   ├── WidgetHeader.svelte      # Widget chrome/controls
+│   ├── ResizeHandle.svelte      # Resize interaction
+│   └── GridOverlay.svelte       # Edit mode overlay
+├── tables/                      # Data tables
+│   └── DataTable.svelte
+├── kpi/                         # KPI components
+│   └── KPICard.svelte
+└── index.ts
 ```
 
-## 🎯 **Next Steps Plan**
+## 🔄 **Backend Integration Architecture**
 
-### **Phase 4: Complete Chart Component Suite**
-**Immediate Next Steps (High Priority):**
-1. **LineChart Component** - For trend analysis over time
-   - Time-series compensation trends
-   - wRVU performance tracking
-   - Department growth patterns
+### **Go Backend Configuration System**
+```go
+// Chart configuration that gets converted to frontend components
+type ChartConfig struct {
+    ID          string            `json:"id"`
+    Type        ChartType         `json:"type"`
+    Title       string            `json:"title"`
+    DataSource  DataSourceConfig  `json:"dataSource"`
+    Dimensions  DimensionsConfig  `json:"dimensions"`
+    Styling     StylingConfig     `json:"styling"`
+    Axes        AxesConfig        `json:"axes"`
+}
 
-2. **ScatterPlot Component** - For correlation analysis
-   - wRVU vs Compensation correlation
-   - Provider performance distribution
-   - Department efficiency metrics
+// Widget wrapper for dashboard layout
+type WidgetConfig struct {
+    ID     string          `json:"id"`
+    Type   WidgetType      `json:"type"`
+    Title  string          `json:"title"`
+    Layout GridLayout      `json:"layout"`
+    Config json.RawMessage `json:"config"`
+}
+```
 
-3. **Shared Chart Components** - Common chart utilities
-   - ChartContainer (reusable wrapper)
-   - ChartTooltip (standardized tooltips)
-   - ChartLegend (consistent legends)
-   - ChartAxis (reusable axis components)
+### **Frontend Type System**
+```typescript
+// Mirror Go structs in TypeScript
+export interface ChartConfig {
+  id: string;
+  type: 'line' | 'bar' | 'scatter' | 'combo';
+  title: string;
+  dataSource: DataSourceConfig;
+  dimensions: DimensionsConfig;
+  styling: StylingConfig;
+  axes: AxesConfig;
+}
 
-### **Phase 5: Dashboard Components**
-**Medium Priority:**
-1. **KPI Cards** - Key performance indicators
-2. **Data Tables** - Sortable/filterable compensation tables
-3. **Filter Components** - Date ranges, department selectors
-4. **Dashboard Layouts** - Grid systems for dashboard organization
+export interface WidgetConfig {
+  id: string;
+  type: 'chart' | 'table' | 'kpi';
+  title: string;
+  layout: GridLayout;
+  config: any; // ChartConfig, TableConfig, etc.
+}
+```
 
-### **Phase 6: Advanced Features**
-**Future Enhancements:**
-1. **Interactive Features** - Zoom, pan, brush selection
-2. **Export Functionality** - PDF/PNG chart exports
-3. **Real-time Updates** - Live data integration
-4. **Accessibility** - Screen reader support, keyboard navigation
+## 🚧 **Current Status: Layer Cake Chart Implementation**
 
-## 🚨 **Important Technical Consideration: Graph Library Evaluation**
+### **Phase 4: Layer Cake Chart Suite - IN PROGRESS**
 
-### **Current Approach: Custom SVG-based Charts**
-We're currently building charts from scratch using SVG and Svelte 5 runes. While this gives us full control, it's essentially creating our own charting library.
+**✅ COMPLETED:**
+- ✅ Converted all chart components to Layer Cake + D3.js architecture
+- ✅ Fixed all Tailwind CSS v4.1.11 compatibility issues 
+- ✅ Resolved Svelte 5 runes syntax errors ($state.snapshot issues)
+- ✅ Implemented comprehensive Storybook stories for all chart types
+- ✅ Fixed dashboard components (WidgetHeader, WidgetContainer, GridOverlay)
+- ✅ Created complete Layer Cake chart component suite:
+  - BarChartLayerCake.svelte
+  - LineChart.svelte  
+  - ScatterPlot.svelte
+  - ComboChart.svelte
+  - DynamicChart.svelte
+- ✅ Built core chart infrastructure:
+  - ChartContainer.svelte
+  - ChartAxis.svelte
+  - ChartTooltip.svelte
+  - ChartLegend.svelte
+  - Bars.svelte (layer)
+  - Line.svelte (layer)
 
-### **Alternative: Leverage Existing Libraries**
-**Recommended Investigation:**
-Consider integrating established chart libraries that work well with Svelte:
+**⚠️ CURRENT BLOCKING ISSUES:**
 
-**Option 1: D3.js + Svelte**
-- **Pros:** Industry standard, extremely flexible, great for complex visualizations
-- **Cons:** Steeper learning curve, larger bundle size
-- **Fit:** Excellent for clinical data complexity
+**Chart Rendering Problems:**
+1. **BarChart Stories**: Charts render with axes, titles, and tooltips but **no visible bars**
+   - Storybook stories load without errors
+   - All chart chrome appears correctly
+   - Data is processed but bars are not visible in SVG
 
-**Option 2: Chart.js + Svelte**
-- **Pros:** Simple API, good performance, smaller bundle
-- **Cons:** Less customization, limited to standard chart types
-- **Fit:** Good for standard compensation charts
+2. **LineChart Stories**: Charts render with axes, titles, and tooltips but **no visible lines**
+   - All LineChart story variants load without errors  
+   - Story differentiation is now working (different heights, grid/no grid, etc.)
+   - Data processing works but line paths are not visible
 
-**Option 3: Observable Plot + Svelte**
-- **Pros:** Modern D3 successor, grammar of graphics approach
-- **Cons:** Newer library, smaller ecosystem
-- **Fit:** Great balance of power and simplicity
+**Technical Details:**
+- LayerCake context integration appears functional
+- D3 scales are being created correctly
+- Data transformation pipeline is working
+- SVG elements exist in DOM but no visual rendering
+- Console debug logging shows proper data flow
 
-**Option 4: Continue Custom SVG Approach**
-- **Pros:** Full control, perfect Svelte 5 integration, no external dependencies
-- **Cons:** More development time, need to solve common charting problems
+**Likely Root Causes:**
+- LayerCake data passing or context issues
+- D3 scale domain/range calculations
+- SVG coordinate system problems
+- Layer Cake render lifecycle timing
 
-### **Recommendation:**
-**Pause and evaluate** existing libraries before continuing. For clinical compensation dashboards, consider:
-1. **D3.js** - If you need complex, interactive visualizations
-2. **Observable Plot** - If you want modern, declarative charting
-3. **Continue custom** - If you need perfect control and minimal dependencies
+**NEXT PRIORITY:**
+🔥 **Critical**: Fix chart rendering to display actual bars and lines before proceeding with additional features.
 
-## 🔄 **Handoff Information**
+---
 
-### **Development Environment:**
-- **Framework:** SvelteKit with Svelte 5 runes
-- **Styling:** Tailwind CSS v4 + tailwind-variants
-- **Documentation:** Storybook
-- **Language:** TypeScript
-- **Package Manager:** npm
+## 🎯 **Updated Next Steps**
 
-### **Key Commands:**
+### **Phase 4 Completion: Fix Chart Rendering (URGENT)**
+**Core Infrastructure:**
+
+1. **WidgetContainer Component**
+   - Grid-based positioning system
+   - Resize handles with grid snapping
+   - Drag and drop support
+   - Container queries for responsive content
+
+2. **DashboardGrid Layout**
+   - Configurable grid system (12/16/24 columns)
+   - Collision detection
+   - Widget persistence
+   - Edit mode with visual grid
+
+3. **Widget Header/Chrome**
+   - Consistent title bar
+   - Action buttons (settings, remove, fullscreen)
+   - Drag handle for reordering
+
+### **Phase 5: Layer Cake Chart Suite (Week 2-3)**
+**Chart Components:**
+
+1. **Core Chart Infrastructure**
+   ```bash
+   npm install layercake d3-scale d3-shape d3-array d3-time-format
+   ```
+   - ChartContainer with Layer Cake wrapper
+   - Shared tooltip system
+   - Consistent axis components
+   - Legend builder
+
+2. **Essential Charts**
+   - **LineChart**: Compensation trends over time
+   - **ScatterPlot**: wRVU vs compensation correlation
+   - **BarChart v2**: Layer Cake version with animations
+   - **ComboChart**: Bar + line combinations
+
+3. **Clinical Specializations**
+   - Department comparison overlays
+   - Benchmark reference lines
+   - Statistical indicators (median, quartiles)
+   - Time period comparisons
+
+### **Phase 6: Data Integration (Week 4)**
+**Dynamic Data Handling:**
+
+1. **Data Source Management**
+   - Real-time data fetching
+   - Transform pipeline (filter, aggregate, sort)
+   - Caching strategy
+   - Error handling
+
+2. **Backend Communication**
+   - Chart config endpoint
+   - Data streaming for real-time updates
+   - Export endpoints (PDF, Excel)
+
+3. **State Management**
+   - Dashboard state persistence
+   - Undo/redo for layout changes
+   - User preferences
+
+### **Phase 7: Advanced Features (Week 5-6)**
+
+1. **Interactive Features**
+   - Cross-chart filtering
+   - Brush selection with d3-brush
+   - Zoom/pan controls
+   - Linked highlighting
+
+2. **Export System**
+   - SVG/PNG chart export
+   - PDF dashboard reports
+   - Excel data export
+   - Email scheduling
+
+3. **Performance Optimization**
+   - Virtual scrolling for large tables
+   - Progressive chart loading
+   - Memoization strategies
+   - Code splitting by widget type
+
+## 🛠 **Technical Implementation Patterns**
+
+### **Size-Aware Chart Component**
+```svelte
+<!-- DynamicChart.svelte -->
+<script lang="ts">
+  interface Props {
+    config: ChartConfig;
+    size?: 'small' | 'medium' | 'large';
+    containerWidth?: number;
+    containerHeight?: number;
+  }
+  
+  let { config, size = 'medium' }: Props = $props();
+  
+  // Responsive adjustments
+  $: padding = size === 'small' 
+    ? { top: 10, right: 10, bottom: 30, left: 40 }
+    : { top: 20, right: 20, bottom: 40, left: 60 };
+    
+  $: showLegend = size !== 'small';
+  $: tickCount = size === 'small' ? 4 : 8;
+</script>
+```
+
+### **Widget Container Pattern**
+```svelte
+<!-- WidgetContainer.svelte -->
+<script lang="ts">
+  interface Props {
+    config: WidgetConfig;
+    resizable?: boolean;
+    draggable?: boolean;
+  }
+  
+  let { config, resizable = true }: Props = $props();
+  
+  // Container provides stable interface
+  $: gridStyles = {
+    gridColumn: `${config.layout.x + 1} / span ${config.layout.w}`,
+    gridRow: `${config.layout.y + 1} / span ${config.layout.h}`,
+  };
+</script>
+
+<div class="widget-container" style:grid-column={gridStyles.gridColumn}>
+  <WidgetHeader {config} />
+  <div class="widget-content">
+    <slot /> <!-- Chart/table/KPI goes here -->
+  </div>
+  {#if resizable}
+    <ResizeHandles />
+  {/if}
+</div>
+```
+
+### **Clinical Dashboard Example**
+```typescript
+// Sample dashboard configuration from Go backend
+const compensationDashboard: DashboardConfig = {
+  id: "clinical-comp-2024",
+  name: "Clinical Compensation Analysis",
+  gridCols: 12,
+  gridRows: 8,
+  widgets: [
+    {
+      id: "comp-trend",
+      type: "chart",
+      title: "Compensation Trends",
+      layout: { x: 0, y: 0, w: 8, h: 4 },
+      config: {
+        type: "line",
+        dataSource: { endpoint: "/api/compensation/trends" },
+        dimensions: { x: "date", y: "compensation" }
+      }
+    },
+    {
+      id: "wrvu-scatter",
+      type: "chart", 
+      title: "wRVU Analysis",
+      layout: { x: 8, y: 0, w: 4, h: 4 },
+      config: {
+        type: "scatter",
+        dataSource: { endpoint: "/api/wrvu/correlation" },
+        dimensions: { x: "wRVU", y: "compensation", color: "department" }
+      }
+    }
+  ]
+};
+```
+
+## 🔄 **Migration Path from Current BarChart**
+
+1. **Keep existing BarChart as reference**
+2. **Build Layer Cake version alongside**
+3. **Create shared chart utilities**
+4. **Gradually migrate to widget system**
+5. **Deprecate old implementation**
+
+## 📚 **Key Design Decisions**
+
+1. **Container Queries over Media Queries**
+   - Charts adapt to container size, not viewport
+   - Better for dashboard layouts
+   - Future-proof approach
+
+2. **Grid-based Layout System**
+   - Predictable positioning
+   - Easy serialization
+   - Familiar mental model
+
+3. **Declarative Configuration**
+   - Backend drives visualization
+   - Type-safe contracts
+   - Easy to persist/share
+
+4. **Component Composition**
+   - Small, focused components
+   - Highly reusable
+   - Easy to test
+
+## 🚀 **Development Commands**
 ```bash
 cd /Users/loganorndorf/Documents/toyfrontend/toy-frontend-library
-npm run dev          # Development server
-npm run storybook    # Component documentation
-npm run build        # Production build
+npm install layercake d3-scale d3-shape d3-array  # Chart dependencies
+npm run dev                                        # Development server
+npm run storybook                                  # Component documentation
+npm run build                                      # Production build
 ```
 
-### **Current Issues to Address:**
-1. **Chart Library Decision** - Evaluate D3.js vs custom approach
-2. **Data Integration** - Plan for real compensation data integration
-3. **Performance Testing** - Test with large datasets
-4. **Accessibility Audit** - Ensure charts are accessible
-
-### **Architecture Decisions Made:**
-- Svelte 5 runes for reactivity (no stores needed)
-- tailwind-variants for component styling consistency
-- Storybook for component documentation and testing
-- TypeScript for type safety
-- Clinician compensation as primary use case
-
-## 🛠 **Technical Debugging Notes**
-
-### **Issues Encountered & Resolved:**
-1. **Svelte 5 Runes Compatibility with Storybook**
-   - **Issue:** `$.get(...) is not a function` errors
-   - **Solution:** Converted `$derived` statements to `$:` reactive statements where needed
-   - **Location:** BarChart.svelte
-
-2. **Dynamic Import Failures in Storybook**
-   - **Issue:** `Failed to fetch dynamically imported module`
-   - **Solution:** Corrected import paths and file structure organization
-   - **Location:** BarChart.stories.ts
-
-3. **Chart Styling Issues**
-   - **Issue:** Inconsistent property/function calls on tailwind-variants
-   - **Solution:** Changed `chartStyles.property()` to `chartStyles.property`
-   - **Location:** BarChart.svelte, multiple lines
-
-### **Development Patterns:**
-- Always use `$derived` for computed values in Svelte 5
-- Use `$state` for mutable reactive variables
-- Maintain consistent prop destructuring with `$props()`
-- Use `{@html}` directive for rendering formatted tooltip content
-
-This documentation provides a complete handoff for another engineer to continue development, with clear next steps and important architectural considerations about chart library selection.
+This architecture provides a clean separation between data visualization and layout concerns, making it easy to build flexible, responsive dashboards while keeping your charts pure and reusable.
